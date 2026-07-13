@@ -68,7 +68,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 0;
+    padding: 4px 0;
     border-bottom: 1px solid var(--line);
   }
   .links li:last-child { border-bottom: none; }
@@ -107,7 +107,7 @@
   .hidden { display: none; }
   .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
   .thumbs img {
-    width: 96px; height: 128px;
+    width: 192px; height: 256px;
     object-fit: cover;
     border-radius: 8px;
     border: 1px solid var(--line);
@@ -130,7 +130,7 @@
 
   <div class="card hidden" id="result">
     <div class="thumbs" id="thumbs"></div>
-    <label style="margin-top:18px">Ссылки</label>
+    <label style="margin-top:118px">Ссылки</label>
     <ul class="links" id="links"></ul>
     <div class="status" id="status"></div>
   </div>
@@ -152,9 +152,14 @@ function generate() {
   currentUrls = [1,2,3,4,5].map(make);
 
   const list = $("links");
+  const thumbs = $("thumbs");
   list.innerHTML = "";
+  thumbs.innerHTML = "";
+
   currentUrls.forEach((url, idx) => {
+    // Строка ссылки — сначала скрыта, покажем только если фото загрузилось
     const li = document.createElement("li");
+    li.style.display = "none";
     li.innerHTML = `<span class="num">${idx+1}</span>
       <a href="${url}" target="_blank" rel="noopener">${url}</a>
       <button class="copy-btn">Копировать</button>`;
@@ -164,15 +169,13 @@ function generate() {
       setTimeout(() => e.target.textContent = "Копировать", 1500);
     };
     list.appendChild(li);
-  });
 
-  const thumbs = $("thumbs");
-  thumbs.innerHTML = "";
-  currentUrls.forEach((url, idx) => {
+    // Превью
     const img = document.createElement("img");
     img.src = url;
     img.alt = `Фото ${idx+1}`;
-    img.onerror = () => img.remove();
+    img.onload = () => { li.style.display = "flex"; };
+    img.onerror = () => { img.remove(); li.remove(); };
     img.style.cursor = "pointer";
     img.onclick = () => window.open(url, "_blank");
     thumbs.appendChild(img);
