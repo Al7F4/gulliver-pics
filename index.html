@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gulliver — ссылки на изображения</title>
+<style>
+  :root {
+    --ink: #1c2333;
+    --muted: #6b7280;
+    --accent: #2f5fde;
+    --accent-dark: #234ab0;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --line: #e4e7ef;
+    --ok: #178a4c;
+    --warn: #b45309;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .app { width: 100%; max-width: 720px; }
+  h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 24px;
+    margin-top: 20px;
+  }
+  label { font-size: 0.85rem; font-weight: 600; color: var(--muted); display: block; margin-bottom: 8px; }
+  .input-row { display: flex; gap: 10px; }
+  input[type=text] {
+    flex: 1;
+    font-size: 1.05rem;
+    font-family: "Consolas", "SF Mono", monospace;
+    padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    outline: none;
+    text-transform: uppercase;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  input[type=text]::placeholder { color: #c3c8d4; }
+  button {
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: var(--accent);
+    color: #fff;
+    transition: background 0.15s;
+  }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .links { list-style: none; margin-top: 4px; }
+  .links li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .links li:last-child { border-bottom: none; }
+  .num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .links a {
+    color: var(--accent);
+    text-decoration: none;
+    font-family: "Consolas", "SF Mono", monospace;
+    font-size: 0.82rem;
+    word-break: break-all;
+  }
+  .links a:hover { text-decoration: underline; }
+  .copy-btn {
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 0.78rem;
+    padding: 6px 10px;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { background: var(--line); }
+  .actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .secondary { background: #fff; color: var(--ink); border: 1.5px solid var(--line); }
+  .secondary:hover { background: var(--bg); }
+  .status { margin-top: 14px; font-size: 0.88rem; }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--warn); }
+  .hidden { display: none; }
+  .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .thumbs img {
+    width: 96px; height: 128px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Фиксик-скачивальщик картинок Gulliver</h1>
+  <p class="sub">Вставь в поле артикул без размера</p>
+
+  <div class="card">
+    <label for="sku">Артикул (SKU)</label>
+    <div class="input-row">
+      <input type="text" id="sku" placeholder="12602GMC1602" autocomplete="off">
+      <button id="go">Сгенерировать</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="result">
+    <div class="thumbs" id="thumbs"></div>
+    <label style="margin-top:18px">Ссылки</label>
+    <ul class="links" id="links"></ul>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+const TEMPLATE = sku => i =>
+  `https://pics.gulliver.ru/ioss(quality=90,resize=1500)/catalog/gulliver/${sku}/${i}.jpg`;
+
+const $ = id => document.getElementById(id);
+let currentUrls = [];
+let currentSku = "";
+
+function generate() {
+  const sku = $("sku").value.trim().toUpperCase();
+  if (!sku) return;
+  currentSku = sku;
+  const make = TEMPLATE(sku);
+  currentUrls = [1,2,3,4,5].map(make);
+
+  const list = $("links");
+  list.innerHTML = "";
+  currentUrls.forEach((url, idx) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="num">${idx+1}</span>
+      <a href="${url}" target="_blank" rel="noopener">${url}</a>
+      <button class="copy-btn">Копировать</button>`;
+    li.querySelector(".copy-btn").onclick = (e) => {
+      navigator.clipboard.writeText(url);
+      e.target.textContent = "Готово ✓";
+      setTimeout(() => e.target.textContent = "Копировать", 1500);
+    };
+    list.appendChild(li);
+  });
+
+  const thumbs = $("thumbs");
+  thumbs.innerHTML = "";
+  currentUrls.forEach((url, idx) => {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = `Фото ${idx+1}`;
+    img.onerror = () => img.remove();
+    img.style.cursor = "pointer";
+    img.onclick = () => window.open(url, "_blank");
+    thumbs.appendChild(img);
+  });
+
+  $("status").textContent = "";
+  $("status").className = "status";
+  $("result").classList.remove("hidden");
+}
+
+$("go").onclick = generate;
+$("sku").addEventListener("keydown", e => { if (e.key === "Enter") generate(); });
+
+function setStatus(text, cls) {
+  const s = $("status");
+  s.textContent = text;
+  s.className = "status " + (cls || "");
+}
+</script>
+</body>
+</html>
