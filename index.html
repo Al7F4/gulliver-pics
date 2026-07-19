@@ -162,8 +162,8 @@ function renderSkuCard(sku, container) {
   const make = TEMPLATE(sku);
   let loaded = 0, finished = 0;
 
-  // Проверяем оба варианта нумерации фото: 1–5 и 61–65
-  const NUMS = [1,2,3,4,5,61,62,63,64,65];
+  // Проверяем все номера фото от 1 до 99
+  const NUMS = Array.from({length: 99}, (_, k) => k + 1);
   NUMS.forEach((i, idx) => {
     const url = make(i);
 
