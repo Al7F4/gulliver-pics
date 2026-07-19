@@ -37,9 +37,9 @@
     margin-top: 20px;
   }
   label { font-size: 0.85rem; font-weight: 600; color: var(--muted); display: block; margin-bottom: 8px; }
-  .input-row { display: flex; gap: 10px; }
-  input[type=text] {
-    flex: 1;
+  textarea {
+    width: 100%;
+    min-height: 90px;
     font-size: 1.05rem;
     font-family: "Consolas", "SF Mono", monospace;
     padding: 12px 14px;
@@ -47,9 +47,10 @@
     border-radius: 10px;
     outline: none;
     text-transform: uppercase;
+    resize: vertical;
   }
-  input[type=text]:focus { border-color: var(--accent); }
-  input[type=text]::placeholder { color: #c3c8d4; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: #c3c8d4; text-transform: none; }
   button {
     font-size: 0.95rem;
     font-weight: 600;
@@ -62,8 +63,14 @@
     transition: background 0.15s;
   }
   button:hover { background: var(--accent-dark); }
-  button:disabled { opacity: 0.5; cursor: default; }
-  .links { list-style: none; margin-top: 4px; }
+  .go-row { margin-top: 12px; }
+  .sku-title {
+    font-family: "Consolas", "SF Mono", monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .links { list-style: none; margin-top: 118px; }
   .links li {
     display: flex;
     align-items: center;
@@ -98,13 +105,7 @@
     flex-shrink: 0;
   }
   .copy-btn:hover { background: var(--line); }
-  .actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
-  .secondary { background: #fff; color: var(--ink); border: 1.5px solid var(--line); }
-  .secondary:hover { background: var(--bg); }
-  .status { margin-top: 14px; font-size: 0.88rem; }
-  .status.ok { color: var(--ok); }
-  .status.warn { color: var(--warn); }
-  .hidden { display: none; }
+  .empty-note { color: var(--warn); font-size: 0.88rem; }
   .thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
   .thumbs img {
     width: 192px; height: 256px;
@@ -112,28 +113,24 @@
     border-radius: 8px;
     border: 1px solid var(--line);
     background: var(--bg);
+    cursor: pointer;
   }
 </style>
 </head>
 <body>
 <div class="app">
   <h1>Фиксик-скачивальщик картинок Gulliver</h1>
-  <p class="sub">Вставь в поле артикул без размера</p>
+  <p class="sub">Вставь в поле артикул без размера. Можно сразу списком — каждый с новой строки, через запятую или пробел.</p>
 
   <div class="card">
-    <label for="sku">Артикул (SKU)</label>
-    <div class="input-row">
-      <input type="text" id="sku" placeholder="12602GMC1602" autocomplete="off">
-      <button id="go">Фиксик, ищи картинки!</button>
+    <label for="sku">Артикул (SKU) — один или список</label>
+    <textarea id="sku" placeholder="12602GMC1602&#10;12001GMC7501&#10;12601GMC2506"></textarea>
+    <div class="go-row">
+      <button id="go">Сгенерировать</button>
     </div>
   </div>
 
-  <div class="card hidden" id="result">
-    <div class="thumbs" id="thumbs"></div>
-    <label style="margin-top:118px">Ссылки</label>
-    <ul class="links" id="links"></ul>
-    <div class="status" id="status"></div>
-  </div>
+  <div id="results"></div>
 </div>
 
 <script>
@@ -141,26 +138,39 @@ const TEMPLATE = sku => i =>
   `https://pics.gulliver.ru/ioss(quality=90,resize=1500)/catalog/gulliver/${sku}/${i}.jpg`;
 
 const $ = id => document.getElementById(id);
-let currentUrls = [];
-let currentSku = "";
 
-function generate() {
-  const sku = $("sku").value.trim().toUpperCase();
-  if (!sku) return;
-  currentSku = sku;
+function parseSkus(text) {
+  // Разбиваем по переводам строк, запятым, точкам с запятой и пробелам
+  const parts = text.toUpperCase().split(/[\s,;]+/).filter(Boolean);
+  // Убираем дубликаты, сохраняя порядок
+  return [...new Set(parts)];
+}
+
+function renderSkuCard(sku, container) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="sku-title">${sku}</div>
+    <div class="thumbs"></div>
+    <ul class="links"></ul>
+    <div class="empty-note" style="display:none">Изображения не найдены — проверь артикул.</div>`;
+  container.appendChild(card);
+
+  const thumbs = card.querySelector(".thumbs");
+  const list = card.querySelector(".links");
+  const emptyNote = card.querySelector(".empty-note");
   const make = TEMPLATE(sku);
-  currentUrls = [1,2,3,4,5].map(make);
+  let loaded = 0, finished = 0;
 
-  const list = $("links");
-  const thumbs = $("thumbs");
-  list.innerHTML = "";
-  thumbs.innerHTML = "";
+  // Проверяем оба варианта нумерации фото: 1–5 и 61–65
+  const NUMS = [1,2,3,4,5,61,62,63,64,65];
+  NUMS.forEach((i, idx) => {
+    const url = make(i);
 
-  currentUrls.forEach((url, idx) => {
-    // Строка ссылки — сначала скрыта, покажем только если фото загрузилось
+    // Строка ссылки — скрыта, покажем только если фото существует
     const li = document.createElement("li");
     li.style.display = "none";
-    li.innerHTML = `<span class="num">${idx+1}</span>
+    li.innerHTML = `<span class="num">${i}</span>
       <a href="${url}" target="_blank" rel="noopener">${url}</a>
       <button class="copy-btn">Копировать</button>`;
     li.querySelector(".copy-btn").onclick = (e) => {
@@ -173,27 +183,42 @@ function generate() {
     // Превью
     const img = document.createElement("img");
     img.src = url;
-    img.alt = `Фото ${idx+1}`;
-    img.onload = () => { li.style.display = "flex"; };
-    img.onerror = () => { img.remove(); li.remove(); };
-    img.style.cursor = "pointer";
+    img.alt = `${sku} — фото ${i}`;
     img.onclick = () => window.open(url, "_blank");
+    img.onload = () => {
+      li.style.display = "flex";
+      loaded++; finished++;
+      checkEmpty();
+    };
+    img.onerror = () => {
+      img.remove(); li.remove();
+      finished++;
+      checkEmpty();
+    };
     thumbs.appendChild(img);
   });
 
-  $("status").textContent = "";
-  $("status").className = "status";
-  $("result").classList.remove("hidden");
+  function checkEmpty() {
+    if (finished === NUMS.length && loaded === 0) {
+      list.style.display = "none";
+      emptyNote.style.display = "block";
+    }
+  }
+}
+
+function generate() {
+  const skus = parseSkus($("sku").value);
+  if (skus.length === 0) return;
+  const container = $("results");
+  container.innerHTML = "";
+  skus.forEach(sku => renderSkuCard(sku, container));
 }
 
 $("go").onclick = generate;
-$("sku").addEventListener("keydown", e => { if (e.key === "Enter") generate(); });
-
-function setStatus(text, cls) {
-  const s = $("status");
-  s.textContent = text;
-  s.className = "status " + (cls || "");
-}
+$("sku").addEventListener("keydown", e => {
+  // Ctrl+Enter или Cmd+Enter запускают генерацию (обычный Enter — новая строка)
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) generate();
+});
 </script>
 </body>
 </html>
